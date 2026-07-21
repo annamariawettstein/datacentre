@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UK DATA CENTRE GRID // PIPELINE MONITOR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Top status bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="glyph">◈</span>
+      <div class="brand-text">
+        <h1>UK DATA CENTRE GRID</h1>
+        <p>PLANNING PIPELINE MONITOR</p>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-link" data-card="about">ABOUT</button>
+      <button class="nav-link" data-card="method">METHODOLOGY</button>
+    </nav>
+    <div class="status">
+      <span class="pulse-dot"></span>
+      <span id="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <!-- Center overlay cards -->
+  <div class="overlay" id="overlay">
+    <article class="card" id="card-about" hidden>
+      <button class="card-close" data-close>✕</button>
+      <div class="card-kicker">◈ ABOUT</div>
+      <h2>UK Data Centre Grid</h2>
+      <p class="lead">A map of the UK's data-centre planning pipeline, and the argument
+        underneath it: how much probability-weighted power demand is queued up, and where
+        the grid can't meet it.</p>
+      <p>Two artefacts share one data spine. <strong>The map</strong> plots every distinct
+        data-centre scheme in the planning system, coloured by status. <strong>The gap
+        figure</strong> (in progress) weights each scheme by its probability of actually
+        being built, sums the megawatts per Grid Supply Point, and compares that to
+        published network headroom. Survival-weighting is what separates a defensible gap
+        from a raw-queue press release.</p>
+      <div class="card-figs">
+        <div><b id="ab-sites">—</b><span>distinct sites</span></div>
+        <div><b id="ab-apps">—</b><span>applications swept</span></div>
+        <div><b id="ab-live">—</b><span>live pipeline</span></div>
+      </div>
+      <p class="fine">Data: <a href="https://www.planit.org.uk" target="_blank" rel="noopener">PlanIt</a>
+        (planning), with planning.data.gov.uk, DNO open data and Companies House feeding the
+        forthcoming survival, capacity and grid-gap phases. Classification by Gemini; basemap
+        © OpenStreetMap · © CARTO.</p>
+    </article>
+
+    <article class="card" id="card-method" hidden>
+      <button class="card-close" data-close>✕</button>
+      <div class="card-kicker">◈ METHODOLOGY</div>
+      <h2>How the numbers are made</h2>
+
+      <h3>1 · Data spine</h3>
+      <p>A national keyword sweep of PlanIt pulls every planning application mentioning a
+        data centre (and near-synonyms) into Postgres/PostGIS, logging <code>first_seen</code>
+        per record. High recall by design — the noise is removed next.</p>
+
+      <h3>2 · Classification</h3>
+      <p>An LLM pass over each description separates genuine data centres from false
+        positives (solar schemes that merely mention them, telecoms cabinets, generic
+        warehousing) and catches sites filed under generic B8 industrial use.</p>
+
+      <h3>3 · Deduplication to sites</h3>
+      <p>One data centre generates many applications — the original consent, condition
+        discharges, amendments. We collapse them into distinct schemes (one site, one row)
+        via connected-components linkage over shared postcode, ≤180 m proximity, explicit
+        parent/child references, and shared address. Doing the dedupe ourselves, and
+        reporting both counts, is the point.</p>
+
+      <h3>4 · Scale audit — which ones count</h3>
+      <p>"Data centre" spans a 200 MW hyperscale campus and a hospital server cupboard. A
+        second LLM pass categorises every confirmed site — hyperscale, colocation,
+        enterprise, edge/telecom, ancillary — and we remove telecom exchanges, ancillary
+        server rooms and outright false positives. That leaves <b id="me-sites">—</b>
+        genuine data centres, of which <b id="me-material">—</b> are <em>power-material</em>
+        — the set the gap figure is built from, not "anything containing the words data
+        centre".</p>
+
+      <h3>5 · Outcomes &amp; timing</h3>
+      <p>On the Full/Outline subset, outright refusal runs ~2.5% — UK data centres rarely
+        get <em>refused</em>; they get withdrawn or stall. Median time from validation to
+        consent is <b id="me-median">—</b> days, and roughly half breach the council's own
+        statutory target.</p>
+
+      <h3>6 · Lapsed consents — a corrected claim</h3>
+      <p>Permissions that have expired look like dead schemes, but "expired" overstates it.
+        Classifying each by later site activity, most were superseded, implemented, or
+        re-applied. Only <b id="me-lapsed">—</b> sites went <em>fully silent</em> after their
+        permission lapsed — an <em>upper bound</em> on abandoned consents, since a scheme can
+        be built to its original consent with no further applications. We publish the smaller
+        number, not the raw count.</p>
+
+      <h3>Caveats</h3>
+      <p class="fine"><b id="me-mapped">—</b> sites carry coordinates and appear on the map;
+        the rest lack any location in PlanIt. Council-portal data is scraped and imperfect.
+        The survival probability and capacity figures are not yet built — this is the data
+        spine, honestly labelled.</p>
+    </article>
+  </div>
+
+  <!-- Left readout stack -->
+  <aside class="readouts" id="readouts">
+    <div class="panel headline">
+      <div class="panel-label">DISTINCT SITES TRACKED</div>
+      <div class="metric-xl" id="m-sites">—</div>
+      <div class="panel-sub">from <span id="m-apps">—</span> applications · <span id="m-mapped">—</span> shown on map (rest lack coordinates)</div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="panel stat">
+        <div class="panel-label">LIVE PIPELINE</div>
+        <div class="metric" id="m-undecided">—</div>
+        <div class="panel-sub amber">awaiting decision</div>
+      </div>
+      <div class="panel stat">
+        <div class="panel-label">REFUSAL RATE</div>
+        <div class="metric" id="m-refusal">—</div>
+        <div class="panel-sub">full + outline</div>
+      </div>
+      <div class="panel stat">
+        <div class="panel-label">WITHDRAWN</div>
+        <div class="metric" id="m-withdrawn">—</div>
+        <div class="panel-sub">of decided</div>
+      </div>
+      <div class="panel stat">
+        <div class="panel-label">MEDIAN DECISION</div>
+        <div class="metric" id="m-median">—<span class="unit">d</span></div>
+        <div class="panel-sub">validated → consent</div>
+      </div>
+    </div>
+
+    <div class="panel chart-panel">
+      <div class="panel-label">NEW SITES / YEAR</div>
+      <div class="bars" id="year-bars"></div>
+    </div>
+
+    <div class="panel areas-panel">
+      <div class="panel-label">TOP AUTHORITIES · SITES</div>
+      <div class="areas" id="area-list"></div>
+    </div>
+  </aside>
+
+  <!-- Filter + legend dock -->
+  <div class="dock">
+    <div class="legend" id="legend">
+      <button class="leg active" data-state="all"><span class="sw all"></span>ALL</button>
+      <button class="leg active" data-state="Undecided"><span class="sw undecided"></span>UNDECIDED</button>
+      <button class="leg active" data-state="Permitted"><span class="sw permitted"></span>PERMITTED</button>
+      <button class="leg active" data-state="Conditions"><span class="sw conditions"></span>CONDITIONS</button>
+      <button class="leg active" data-state="Rejected"><span class="sw rejected"></span>REFUSED</button>
+      <button class="leg active" data-state="Withdrawn"><span class="sw withdrawn"></span>WITHDRAWN</button>
+    </div>
+  </div>
+
+  <!-- Site detail flyout -->
+  <div class="flyout" id="flyout">
+    <button class="flyout-close" id="flyout-close">✕</button>
+    <div class="flyout-state" id="fly-state">—</div>
+    <h2 id="fly-area">—</h2>
+    <div class="flyout-meta" id="fly-meta"></div>
+    <p class="flyout-desc" id="fly-desc"></p>
+    <a class="flyout-link" id="fly-link" target="_blank" rel="noopener">OPEN PLANIT RECORD ↗</a>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
