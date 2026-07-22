@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>UK DATA CENTRE GRID // PIPELINE MONITOR</title>
+  <title>UK DATA CENTRE MAP // PIPELINE MONITOR</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -18,7 +18,7 @@
     <div class="brand">
       <span class="glyph">◈</span>
       <div class="brand-text">
-        <h1>UK DATA CENTRE GRID</h1>
+        <h1>UK DATA CENTRE MAP</h1>
         <p>PLANNING PIPELINE MONITOR</p>
       </div>
     </div>
@@ -37,7 +37,7 @@
     <article class="card" id="card-about" hidden>
       <button class="card-close" data-close>✕</button>
       <div class="card-kicker">◈ ABOUT</div>
-      <h2>UK Data Centre Grid</h2>
+      <h2>UK Data Centre Map</h2>
       <p class="lead">A map of the UK's data-centre planning pipeline, and the argument
         underneath it: how much probability-weighted power demand is queued up, and where
         the grid can't meet it.</p>
@@ -49,8 +49,8 @@
         from a raw-queue press release.</p>
       <div class="card-figs">
         <div><b id="ab-sites">—</b><span>distinct sites</span></div>
-        <div><b id="ab-apps">—</b><span>applications swept</span></div>
         <div><b id="ab-live">—</b><span>live pipeline</span></div>
+        <div><b id="ab-mw">—</b><span>MW stated in docs</span></div>
       </div>
       <p class="fine">Data: <a href="https://www.planit.org.uk" target="_blank" rel="noopener">PlanIt</a>
         (planning), with planning.data.gov.uk, DNO open data and Companies House feeding the
@@ -77,8 +77,10 @@
       <p>One data centre generates many applications — the original consent, condition
         discharges, amendments. We collapse them into distinct schemes (one site, one row)
         via connected-components linkage over shared postcode, ≤180 m proximity, explicit
-        parent/child references, and shared address. Doing the dedupe ourselves, and
-        reporting both counts, is the point.</p>
+        parent/child references, shared address, and — for schemes consulted across a
+        council boundary, which carry no postcode or coordinates — a matching address-plus-
+        description signature. Doing the dedupe ourselves, and reporting both counts, is the
+        point.</p>
 
       <h3>4 · Scale audit — which ones count</h3>
       <p>"Data centre" spans a 200 MW hyperscale campus and a hospital server cupboard. A
@@ -89,13 +91,32 @@
         — the set the gap figure is built from, not "anything containing the words data
         centre".</p>
 
-      <h3>5 · Outcomes &amp; timing</h3>
+      <h3>5 · Capacity &amp; energy extraction</h3>
+      <p>Only ~2% of descriptions state a power figure — the megawatts live in the
+        application documents. An LLM reads each site's Energy / EIA / planning-statement
+        PDFs and returns a quote-grounded profile: IT load, grid connection, backup vs prime
+        generation, battery and on-site renewables. Where a site states a figure we take it
+        (<b id="me-stated">—</b> sites, <b id="me-stated-mw">—</b> MW); where it doesn't, we
+        fall back to floor-area × a density <em>calibrated from the stated sites</em>
+        (~1.15 kW/m², not a guess) and flag it as an estimate. So far the documents also
+        declare <b id="me-backup">—</b> sites with backup generation, <b id="me-bess">—</b>
+        with battery storage and <b id="me-solar">—</b> with on-site solar.</p>
+
+      <h3>6 · Outcomes &amp; timing</h3>
       <p>On the Full/Outline subset, outright refusal runs ~2.5% — UK data centres rarely
         get <em>refused</em>; they get withdrawn or stall. Median time from validation to
         consent is <b id="me-median">—</b> days, and roughly half breach the council's own
         statutory target.</p>
+      <p>Two outcome labels need care. "Live pipeline" is split: only
+        <b id="me-undec-new">—</b> sites are <em>awaiting a first decision</em>; another
+        <b id="me-undec-fu">—</b> have a live application but were <em>already decided</em>
+        (a variation or condition-discharge on a consented scheme), so they aren't new
+        demand. And "Conditions" is not a clean sub-set of approvals — councils label
+        approvals inconsistently (some record every consent as "conditions"), and the
+        state also sweeps in condition-<em>discharge</em> decisions. We keep it as a
+        neutral "conditions" bucket rather than reading it as a distinct verdict.</p>
 
-      <h3>6 · Lapsed consents — a corrected claim</h3>
+      <h3>7 · Lapsed consents — a corrected claim</h3>
       <p>Permissions that have expired look like dead schemes, but "expired" overstates it.
         Classifying each by later site activity, most were superseded, implemented, or
         re-applied. Only <b id="me-lapsed">—</b> sites went <em>fully silent</em> after their
@@ -106,8 +127,9 @@
       <h3>Caveats</h3>
       <p class="fine"><b id="me-mapped">—</b> sites carry coordinates and appear on the map;
         the rest lack any location in PlanIt. Council-portal data is scraped and imperfect.
-        The survival probability and capacity figures are not yet built — this is the data
-        spine, honestly labelled.</p>
+        Capacity extraction covers the Idox-portal sites; other portals and the survival
+        probability (which will weight the gap figure) are still in progress — this is
+        honestly labelled, not the finished gap.</p>
     </article>
   </div>
 
@@ -119,11 +141,32 @@
       <div class="panel-sub">from <span id="m-apps">—</span> applications · <span id="m-mapped">—</span> shown on map (rest lack coordinates)</div>
     </div>
 
+    <div class="panel headline power">
+      <div class="panel-label">ON-SITE POWER &amp; GENERATION</div>
+      <div class="metric-xl" id="m-gen-sites">—<span class="unit">sites</span></div>
+      <div class="panel-sub">bring their own generation, storage or renewables — declared in the planning documents</div>
+      <div class="genlist" id="genlist">
+        <button class="gen-row" data-gen="backup"><span class="gk">Backup generation</span><span class="gv"><b id="g-backup">—</b> sites<i id="g-backup-x"></i></span></button>
+        <button class="gen-row" data-gen="prime"><span class="gk">Prime gen · gas / CHP</span><span class="gv"><b id="g-prime">—</b> sites<i id="g-prime-x"></i></span></button>
+        <button class="gen-row" data-gen="bess"><span class="gk">Battery · UPS or BESS</span><span class="gv"><b id="g-bess">—</b> sites<i id="g-bess-x"></i></span></button>
+        <button class="gen-row" data-gen="solar"><span class="gk">On-site solar</span><span class="gv"><b id="g-solar">—</b> sites<i id="g-solar-x"></i></span></button>
+        <button class="gen-row" data-gen="wind"><span class="gk">Wind</span><span class="gv"><b id="g-wind">—</b> sites</span></button>
+      </div>
+      <div class="gen-hint" id="gen-hint">tap a row to filter the map · <span id="gen-hint-clear" hidden>showing <b id="gen-hint-n">—</b> mapped · <a href="#" id="gen-clear">clear</a></span></div>
+      <div class="panel-sub demand">Stated power demand <b id="m-stated-mw">—</b> MW across <span id="m-stated-sites">—</span> sites
+        <span class="est">· +~<span id="m-extracted-mw">—</span> MW estimated</span></div>
+    </div>
+
     <div class="stat-grid">
       <div class="panel stat">
-        <div class="panel-label">LIVE PIPELINE</div>
-        <div class="metric" id="m-undecided">—</div>
-        <div class="panel-sub amber">awaiting decision</div>
+        <div class="panel-label">AWAITING 1ST DECISION</div>
+        <div class="metric" id="m-undecided-new">—</div>
+        <div class="panel-sub amber">new · never decided</div>
+      </div>
+      <div class="panel stat">
+        <div class="panel-label">LIVE FOLLOW-UP</div>
+        <div class="metric" id="m-undecided-followup">—</div>
+        <div class="panel-sub">on an already-decided site</div>
       </div>
       <div class="panel stat">
         <div class="panel-label">REFUSAL RATE</div>
@@ -135,7 +178,7 @@
         <div class="metric" id="m-withdrawn">—</div>
         <div class="panel-sub">of decided</div>
       </div>
-      <div class="panel stat">
+      <div class="panel stat span2">
         <div class="panel-label">MEDIAN DECISION</div>
         <div class="metric" id="m-median">—<span class="unit">d</span></div>
         <div class="panel-sub">validated → consent</div>

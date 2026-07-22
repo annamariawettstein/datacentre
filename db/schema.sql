@@ -93,6 +93,37 @@ CREATE TABLE IF NOT EXISTS application (
     site_id                  text
 );
 
+-- Phase 2 energy-profile extraction (capacity.py). `capacity_mw` / `capacity_source`
+-- above hold the single headline figure the Phase 3 denominator sums; the columns
+-- below hold the full extracted profile plus its provenance (which document, which
+-- model, verbatim evidence). Added via ALTER so an already-populated spine picks them
+-- up without a rebuild.
+ALTER TABLE application
+    ADD COLUMN IF NOT EXISTS it_load_mw                   real,     -- IT/compute load
+    ADD COLUMN IF NOT EXISTS grid_connection_mw           real,     -- utility supply capacity
+    ADD COLUMN IF NOT EXISTS headline_capacity_mw         real,     -- stated overall "NN MW data centre"
+    ADD COLUMN IF NOT EXISTS grid_connection_voltage_kv   real,
+    -- Prime generation runs the site (gas turbine / CHP / behind-the-meter); distinct
+    -- from standby generation that only fires on a grid outage. Keeping them apart
+    -- matters: prime generation offsets grid draw, backup does not.
+    ADD COLUMN IF NOT EXISTS prime_generation_type        text,     -- gas|chp|other|none|unknown
+    ADD COLUMN IF NOT EXISTS prime_generation_mw          real,
+    ADD COLUMN IF NOT EXISTS backup_generation_type       text,     -- diesel|gas|other|none|unknown
+    ADD COLUMN IF NOT EXISTS backup_generation_mw         real,
+    ADD COLUMN IF NOT EXISTS backup_generator_count       integer,
+    ADD COLUMN IF NOT EXISTS bess_present                 boolean,
+    ADD COLUMN IF NOT EXISTS bess_mwh                     real,
+    ADD COLUMN IF NOT EXISTS onsite_solar                 boolean,
+    ADD COLUMN IF NOT EXISTS solar_mwp                    real,
+    ADD COLUMN IF NOT EXISTS onsite_wind                  boolean,
+    ADD COLUMN IF NOT EXISTS gross_floor_area_sqm         real,
+    ADD COLUMN IF NOT EXISTS energy_evidence              jsonb,    -- verbatim quotes, per figure
+    ADD COLUMN IF NOT EXISTS energy_extraction_confidence real,
+    ADD COLUMN IF NOT EXISTS energy_doc_url               text,     -- PDF the figures came from
+    ADD COLUMN IF NOT EXISTS energy_doc_title             text,
+    ADD COLUMN IF NOT EXISTS capacity_model               text,
+    ADD COLUMN IF NOT EXISTS capacity_extracted_at        timestamptz;
+
 CREATE INDEX IF NOT EXISTS application_geom_idx        ON application USING gist (geom);
 CREATE INDEX IF NOT EXISTS application_area_idx        ON application (area_name);
 CREATE INDEX IF NOT EXISTS application_start_date_idx  ON application (start_date);

@@ -3,7 +3,7 @@
 const COLORS = {
   Undecided: "#e8a24d",  // pastel peach — the live pipeline
   Permitted: "#6fbf8e",  // pastel green
-  Conditions: "#6cc0b8", // pastel mint
+  Conditions: "#5b9bd8", // blue — distinct from permitted green
   Rejected: "#e3877f",   // pastel coral
   Withdrawn: "#b09ce0",  // pastel lavender
   Unknown: "#b3bdb3",
@@ -54,8 +54,10 @@ const map = new maplibregl.Map({
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
 
+let sitesData = null;
 map.on("load", async () => {
   const data = await fetch("api/sites.geojson").then((r) => r.json());
+  sitesData = data;
   map.addSource("sites", { type: "geojson", data });
 
   // Outer glow — radius scales with the number of applications on the site.
@@ -93,6 +95,7 @@ map.on("load", async () => {
 
 /* ---------- Filters ---------- */
 const active = new Set(["Undecided", "Permitted", "Conditions", "Rejected", "Withdrawn"]);
+let genFilter = null; // one of backup|prime|bess|solar|wind, or null
 document.querySelectorAll(".leg").forEach((btn) => {
   btn.addEventListener("click", () => {
     const s = btn.dataset.state;
@@ -112,9 +115,29 @@ document.querySelectorAll(".leg").forEach((btn) => {
 
 function applyFilter() {
   const states = [...active];
-  const f = states.length ? ["in", ["get", "state"], ["literal", states]] : ["==", ["get", "state"], "__none__"];
+  const stateF = states.length ? ["in", ["get", "state"], ["literal", states]] : ["==", ["get", "state"], "__none__"];
+  const f = genFilter ? ["all", stateF, ["==", ["get", genFilter], true]] : stateF;
   for (const l of ["sites-glow", "sites-core"]) if (map.getLayer(l)) map.setFilter(l, f);
 }
+
+/* ---------- On-site generation filters (clickable breakdown rows) ---------- */
+function updateGenHint() {
+  const clear = document.getElementById("gen-hint-clear");
+  if (!genFilter) { clear.hidden = true; return; }
+  const n = sitesData ? sitesData.features.filter((f) => f.properties[genFilter]).length : 0;
+  document.getElementById("gen-hint-n").textContent = n;
+  clear.hidden = false;
+}
+function setGenFilter(g) {
+  genFilter = g;
+  document.querySelectorAll(".gen-row").forEach((b) => b.classList.toggle("active", b.dataset.gen === genFilter));
+  updateGenHint();
+  applyFilter();
+}
+document.querySelectorAll(".gen-row").forEach((btn) => {
+  btn.addEventListener("click", () => setGenFilter(genFilter === btn.dataset.gen ? null : btn.dataset.gen));
+});
+document.getElementById("gen-clear").addEventListener("click", (e) => { e.preventDefault(); setGenFilter(null); });
 
 /* ---------- Overlay cards (About / Methodology) ---------- */
 const overlay = document.getElementById("overlay");
@@ -154,16 +177,45 @@ fetch("api/stats").then((r) => r.json()).then((s) => {
   animateNum("m-sites", s.sites);
   document.getElementById("m-apps").textContent = s.applications.toLocaleString();
   document.getElementById("m-mapped").textContent = s.mapped_sites.toLocaleString();
-  animateNum("m-undecided", s.undecided_sites);
+  animateNum("m-undecided-new", s.undecided_new ?? 0);
+  animateNum("m-undecided-followup", s.undecided_followup ?? 0);
   document.getElementById("m-refusal").textContent = s.refusal_pct + "%";
   document.getElementById("m-withdrawn").textContent = s.withdrawal_pct + "%";
   document.getElementById("m-median").innerHTML = (s.median_days ?? "—") + '<span class="unit">d</span>';
 
+  // On-site generation / storage panel (headline) + demand footnote
+  const cap = s.capacity || {};
+  const gen = s.generation || {};
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const setCap = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ? " · " + v : ""; };
+  document.getElementById("m-gen-sites").innerHTML =
+    (gen.any_sites ?? 0).toLocaleString() + '<span class="unit">sites</span>';
+  setTxt("g-backup", gen.backup_sites ?? 0);
+  setCap("g-backup-x", [gen.diesel_sites ? gen.diesel_sites + " diesel" : "", gen.backup_mw ? gen.backup_mw.toLocaleString() + " MW" : ""].filter(Boolean).join(" · "));
+  setTxt("g-prime", gen.prime_sites ?? 0);
+  setCap("g-prime-x", gen.prime_mw ? gen.prime_mw.toLocaleString() + " MW" : "");
+  setTxt("g-bess", gen.bess_sites ?? 0);
+  setCap("g-bess-x", gen.bess_mwh ? gen.bess_mwh.toLocaleString() + " MWh" : "");
+  setTxt("g-solar", gen.solar_sites ?? 0);
+  setCap("g-solar-x", gen.solar_mwp ? gen.solar_mwp.toLocaleString() + " MWp" : "");
+  setTxt("g-wind", gen.wind_sites ?? 0);
+
+  setTxt("m-stated-mw", (cap.stated_mw ?? 0).toLocaleString());
+  setTxt("m-stated-sites", (cap.stated_sites ?? 0).toLocaleString());
+  setTxt("m-extracted-mw", (cap.extracted_mw ?? 0).toLocaleString());
+
   // Card figures (About / Methodology)
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set("ab-sites", s.sites.toLocaleString());
-  set("ab-apps", s.applications.toLocaleString());
   set("ab-live", s.undecided_sites.toLocaleString());
+  set("ab-mw", (cap.stated_mw ?? 0).toLocaleString());
+  set("me-stated", (cap.stated_sites ?? 0).toLocaleString());
+  set("me-stated-mw", (cap.stated_mw ?? 0).toLocaleString());
+  set("me-undec-new", (s.undecided_new ?? 0).toLocaleString());
+  set("me-undec-fu", (s.undecided_followup ?? 0).toLocaleString());
+  set("me-backup", (gen.backup_sites ?? 0).toLocaleString());
+  set("me-bess", (gen.bess_sites ?? 0).toLocaleString());
+  set("me-solar", (gen.solar_sites ?? 0).toLocaleString());
   set("me-apps", s.applications.toLocaleString());
   set("me-sites", s.sites.toLocaleString());
   set("me-material", (s.material_sites ?? "—").toLocaleString());

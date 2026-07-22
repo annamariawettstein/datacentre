@@ -113,6 +113,32 @@ def resolve_applicants(
     )
 
 
+@app.command("extract-capacity")
+def extract_capacity(
+    limit: int = typer.Option(50, help="Max sites to extract this run."),
+    force: bool = typer.Option(False, help="Re-extract already-done sites."),
+    all_dc: bool = typer.Option(
+        False, "--all", help="Include non-material data centres (default: material only)."
+    ),
+    max_docs: int = typer.Option(3, help="Top-ranked PDFs to read per site."),
+) -> None:
+    """Extract MW capacity + energy profile from planning PDFs (Idox portals)."""
+    from .capacity import extract_capacity as run
+
+    scope = "confirmed data centres" if all_dc else "material data centres"
+    console.print(
+        f"Extracting capacity for up to {limit} {scope} "
+        f"(reading up to {max_docs} PDFs each with {config.classify_model})..."
+    )
+    attempted, extracted = run(
+        limit=limit, force=force, material_only=not all_dc, max_docs=max_docs
+    )
+    console.print(
+        f"[green]Done.[/green] {extracted}/{attempted} sites yielded a figure "
+        f"({attempted - extracted} no stated capacity / no readable docs)."
+    )
+
+
 @app.command()
 def stats() -> None:
     """Summarise what's in the database."""
