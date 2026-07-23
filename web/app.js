@@ -54,9 +54,20 @@ const map = new maplibregl.Map({
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
 
+// Prefer the live API (local dev, fresh DB); fall back to the committed static
+// snapshot. Production deploys as pure static files with no database, so the API
+// call 404s (or returns HTML) and we use the snapshot.
+async function loadData(apiPath, staticPath) {
+  try {
+    const r = await fetch(apiPath);
+    if (r.ok && (r.headers.get("content-type") || "").includes("json")) return await r.json();
+  } catch (e) { /* no API in production */ }
+  return fetch(staticPath).then((r) => r.json());
+}
+
 let sitesData = null;
 map.on("load", async () => {
-  const data = await fetch("api/sites.geojson").then((r) => r.json());
+  const data = await loadData("api/sites.geojson", "sites.geojson");
   sitesData = data;
   map.addSource("sites", { type: "geojson", data });
 
@@ -173,7 +184,7 @@ function openFlyout(p) {
 document.getElementById("flyout-close").addEventListener("click", () => flyout.classList.remove("open"));
 
 /* ---------- Stats ---------- */
-fetch("api/stats").then((r) => r.json()).then((s) => {
+loadData("api/stats", "stats.json").then((s) => {
   animateNum("m-sites", s.sites);
   document.getElementById("m-apps").textContent = s.applications.toLocaleString();
   document.getElementById("m-mapped").textContent = s.mapped_sites.toLocaleString();
@@ -213,6 +224,7 @@ fetch("api/stats").then((r) => r.json()).then((s) => {
   set("me-stated-mw", (cap.stated_mw ?? 0).toLocaleString());
   set("me-undec-new", (s.undecided_new ?? 0).toLocaleString());
   set("me-undec-fu", (s.undecided_followup ?? 0).toLocaleString());
+  set("me-asof", s.as_of ?? "—");
   set("me-backup", (gen.backup_sites ?? 0).toLocaleString());
   set("me-bess", (gen.bess_sites ?? 0).toLocaleString());
   set("me-solar", (gen.solar_sites ?? 0).toLocaleString());

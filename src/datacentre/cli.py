@@ -69,6 +69,29 @@ def serve(
 
 
 @app.command()
+def snapshot() -> None:
+    """Freeze the API responses to static web/stats.json + web/sites.geojson.
+
+    Lets the site deploy as pure static files (e.g. Vercel) with no database in
+    production — the map/stats read these instead of hitting Postgres. Re-run and
+    redeploy whenever the pipeline data changes.
+    """
+    import json
+
+    from . import api
+
+    stats_body = api.stats().body
+    geo_body = api.sites_geojson().body
+    (api.WEB_DIR / "stats.json").write_bytes(stats_body)
+    (api.WEB_DIR / "sites.geojson").write_bytes(geo_body)
+    s, g = json.loads(stats_body), json.loads(geo_body)
+    console.print(
+        f"[green]Snapshot written[/green] → web/stats.json + web/sites.geojson  "
+        f"({s['sites']} sites, {len(g['features'])} mapped · data as of {s['as_of']})"
+    )
+
+
+@app.command()
 def dedupe() -> None:
     """Collapse applications into distinct physical sites (site_id)."""
     from .dedupe import dedupe as run_dedupe

@@ -27,11 +27,6 @@ model = [
 [project.scripts]
 datacentre = "datacentre.cli:app"
 
-# Vercel builds the FastAPI web app (api.py). cli.py also exposes an `app` (Typer),
-# so the entrypoint must be named explicitly.
-[tool.vercel]
-entrypoint = "src.datacentre.api:app"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

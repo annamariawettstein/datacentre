@@ -8,6 +8,7 @@ Serves the deduped, classified data straight from Postgres:
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import psycopg
@@ -61,7 +62,12 @@ WHERE rn = 1 AND lng IS NOT NULL
 @app.get("/api/sites.geojson")
 def sites_geojson() -> JSONResponse:
     with _conn() as conn:
-        rows = conn.execute(_SITES_SQL).fetchall()
+        return JSONResponse(build_geojson(conn))
+
+
+def build_geojson(conn: psycopg.Connection) -> dict:
+    """The sites FeatureCollection as a plain dict (shared by the API and snapshot)."""
+    rows = conn.execute(_SITES_SQL).fetchall()
     cols = [
         "site_id", "area_name", "app_state", "app_type", "n_apps",
         "first_seen", "lng", "lat", "description", "link", "agent",
@@ -90,7 +96,7 @@ def sites_geojson() -> JSONResponse:
                 "wind": bool(r["gen_wind"]),
             },
         })
-    return JSONResponse({"type": "FeatureCollection", "features": features})
+    return {"type": "FeatureCollection", "features": features}
 
 
 @app.get("/api/stats")
@@ -241,8 +247,10 @@ def stats() -> JSONResponse:
     refusal_pct = round(100 * refused / max(approved + refused, 1), 1)
     withdrawal_pct = round(
         100 * withdrawn / max(approved + refused + withdrawn, 1), 1)
+    today = date.today()
 
     return JSONResponse({
+        "as_of": f"{today.day} {today:%B %Y}",
         "applications": apps,
         "sites": sites,
         "mapped_sites": mapped,
