@@ -1,8 +1,8 @@
 """Scale/type audit over the confirmed data centres.
 
 The is_datacentre pass answers a binary that's mostly right — but "data centre"
-spans a 200 MW hyperscale campus and a hospital's server cupboard. For a power-gap
-figure only the power-material facilities count. This pass assigns each confirmed
+spans a 200 MW hyperscale campus and a hospital's server cupboard. Only the
+power-material facilities matter for grid demand. This pass assigns each confirmed
 site a category and a `dc_material` flag, catching the residual false positives
 (telecom exchanges, ancillary server rooms) at the same time.
 """

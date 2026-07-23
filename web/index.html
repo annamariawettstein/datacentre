@@ -38,24 +38,22 @@
       <button class="card-close" data-close>✕</button>
       <div class="card-kicker">◈ ABOUT</div>
       <h2>UK Data Centre Map</h2>
-      <p class="lead">A map of the UK's data-centre planning pipeline, and the argument
-        underneath it: how much probability-weighted power demand is queued up, and where
-        the grid can't meet it.</p>
-      <p>Two artefacts share one data spine. <strong>The map</strong> plots every distinct
-        data-centre scheme in the planning system, coloured by status. <strong>The gap
-        figure</strong> (in progress) weights each scheme by its probability of actually
-        being built, sums the megawatts per Grid Supply Point, and compares that to
-        published network headroom. Survival-weighting is what separates a defensible gap
-        from a raw-queue press release.</p>
+      <p class="lead">A map of the UK's data-centre planning pipeline — every scheme in the
+        system, its status, its power demand, and the on-site generation, storage and
+        renewables it brings.</p>
+      <p><strong>The map</strong> plots every distinct data-centre scheme in the planning
+        system, coloured by planning status. Behind each point sits a profile read from the
+        application documents: how much power the scheme will draw, and how it plans to
+        power, back up and store that load — diesel standby, gas/CHP, battery, on-site solar
+        or wind. It shows where data centres are queuing up and what they'll ask of the grid.</p>
       <div class="card-figs">
         <div><b id="ab-sites">—</b><span>distinct sites</span></div>
         <div><b id="ab-live">—</b><span>live pipeline</span></div>
         <div><b id="ab-mw">—</b><span>MW stated in docs</span></div>
       </div>
       <p class="fine">Data: <a href="https://www.planit.org.uk" target="_blank" rel="noopener">PlanIt</a>
-        (planning), with planning.data.gov.uk, DNO open data and Companies House feeding the
-        forthcoming survival, capacity and grid-gap phases. Classification by Gemini; basemap
-        © OpenStreetMap · © CARTO.</p>
+        (planning) and council portals (application documents), with DNO open data for grid
+        context. Classification and extraction by Gemini; basemap © OpenStreetMap · © CARTO.</p>
     </article>
 
     <article class="card" id="card-method" hidden>
@@ -88,7 +86,7 @@
         enterprise, edge/telecom, ancillary — and we remove telecom exchanges, ancillary
         server rooms and outright false positives. That leaves <b id="me-sites">—</b>
         genuine data centres, of which <b id="me-material">—</b> are <em>power-material</em>
-        — the set the gap figure is built from, not "anything containing the words data
+        — the set that matters for grid demand, not "anything containing the words data
         centre".</p>
 
       <h3>5 · Capacity &amp; energy extraction</h3>
@@ -127,9 +125,9 @@
       <h3>Caveats</h3>
       <p class="fine"><b id="me-mapped">—</b> sites carry coordinates and appear on the map;
         the rest lack any location in PlanIt. Council-portal data is scraped and imperfect.
-        Capacity extraction covers the Idox-portal sites; other portals and the survival
-        probability (which will weight the gap figure) are still in progress — this is
-        honestly labelled, not the finished gap.</p>
+        Capacity extraction covers the Idox-portal sites so far; other council portals are
+        still to come — this is honestly labelled, and the megawatt totals are a floor,
+        not the full pipeline.</p>
       <p class="fine"><b>Data as of <span id="me-asof">—</span>.</b> The map and figures are a
         snapshot from the pipeline, refreshed on each rebuild.</p>
     </article>

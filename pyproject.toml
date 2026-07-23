@@ -1,7 +1,7 @@
 [project]
 name = "datacentre"
 version = "0.1.0"
-description = "UK data centre pipeline map + probability-weighted regional power-gap analysis"
+description = "UK data centre planning pipeline map with capacity and on-site energy/generation extraction"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Phase 1 (survival model) and Phase 3 (spatial) tooling, installed on demand.
+# Analysis / spatial tooling for the planned grid-context phase, installed on demand.
 model = [
     "pandas>=2.2",
     "scikit-learn>=1.5",

@@ -71,12 +71,6 @@ CREATE TABLE IF NOT EXISTS application (
     capacity_mw              real,
     capacity_source          text CHECK (capacity_source IN ('stated', 'extracted', 'inferred')),
 
-    -- Phase 1 survival model.
-    p_built                  real,
-    p_built_features         jsonb,   -- top-3 drivers, for the map to explain itself
-    p_built_model            text,
-    p_built_at               timestamptz,
-
     -- Applicant/agent resolved by scraping the council portal (PlanIt only carries
     -- a "See source" placeholder for the applicant). See enrich.py.
     applicant                text,
@@ -93,11 +87,18 @@ CREATE TABLE IF NOT EXISTS application (
     site_id                  text
 );
 
+-- Retire the unused survival-model columns (the probability aspect is out of scope).
+-- IF EXISTS makes this a no-op on a fresh schema and a clean drop on an existing one.
+ALTER TABLE application
+    DROP COLUMN IF EXISTS p_built,
+    DROP COLUMN IF EXISTS p_built_features,
+    DROP COLUMN IF EXISTS p_built_model,
+    DROP COLUMN IF EXISTS p_built_at;
+
 -- Phase 2 energy-profile extraction (capacity.py). `capacity_mw` / `capacity_source`
--- above hold the single headline figure the Phase 3 denominator sums; the columns
--- below hold the full extracted profile plus its provenance (which document, which
--- model, verbatim evidence). Added via ALTER so an already-populated spine picks them
--- up without a rebuild.
+-- above hold the single headline figure; the columns below hold the full extracted
+-- profile plus its provenance (which document, which model, verbatim evidence). Added
+-- via ALTER so an already-populated spine picks them up without a rebuild.
 ALTER TABLE application
     ADD COLUMN IF NOT EXISTS it_load_mw                   real,     -- IT/compute load
     ADD COLUMN IF NOT EXISTS grid_connection_mw           real,     -- utility supply capacity

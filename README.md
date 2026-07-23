@@ -1,21 +1,19 @@
 # UK data centre pipeline
 
-Two artefacts sharing one data spine:
-
-- **A** — a UK data centre pipeline map where each site carries a *probability it gets built* (`p_built`)
-- **B** — a probability-weighted regional power-gap figure: pipeline demand vs. grid headroom, by Grid Supply Point
-
-B depends on A. Survival weighting is what makes the headline gap defensible rather than a raw-queue press release.
+A map of the UK data-centre planning pipeline: every scheme in the planning system, its
+status, its power demand, and the on-site generation, storage and renewables it brings —
+built from a national planning sweep, LLM classification, deduplication to distinct
+schemes, and capacity/energy extraction from the application documents.
 
 ## Phases
 
 | Phase | What | Status |
 |---|---|---|
-| **0** | Data spine — PlanIt sweep → Postgres/PostGIS, LLM classification | ⏳ in progress |
-| **1** | Survival model — LightGBM on all large commercial/industrial apps, applied to the DC subset, temporal validation | ▫ planned |
-| **2** | Capacity extraction — Claude over D&AS / EIA / energy PDFs → MW; floor-area→MW fallback | ▫ planned |
-| **3** | Denominator — map sites to GSP, sum `capacity_mw × p_built` vs DNO headroom | ▫ planned |
-| **4** | Surface — MapLibre + PMTiles, coloured by `p_built`, time slider over `first_seen`, methodology page | ▫ planned |
+| **Data spine** | PlanIt sweep → Postgres/PostGIS, LLM classification | ✓ built |
+| **Dedup** | collapse applications into distinct physical sites | ✓ built |
+| **Capacity & energy** | LLM over D&AS / EIA / energy PDFs → MW + on-site generation profile; floor-area→MW fallback | ✓ built (Idox portals) |
+| **Surface** | MapLibre map + stats, coloured by planning status, on-site-generation filters | ✓ built |
+| **Grid context** | map sites to Grid Supply Point, sum `capacity_mw` vs DNO headroom | ▫ planned |
 
 ## Setup
 
@@ -63,7 +61,7 @@ whichever key is present (Gemini preferred); override with `CLASSIFY_PROVIDER`.
 
 The `sweep --incremental N` command is idempotent and cron-friendly. `first_seen` is
 stamped once per record and never overwritten, so it survives re-runs and drives the
-Phase 4 time slider. Example crontab (daily incremental at 03:00):
+map's time dimension. Example crontab (daily incremental at 03:00):
 
 ```
 0 3 * * * cd /path/to/datacentre && .venv/bin/datacentre sweep --incremental 2 >> sweep.log 2>&1
@@ -73,15 +71,17 @@ Phase 4 time slider. Example crontab (daily incremental at 03:00):
 
 Everything lives in one `application` table (`db/schema.sql`): the raw PlanIt fields, a
 PostGIS `geom` point, provenance (`first_seen`, `last_ingested`), and the analysis columns
-each later phase fills in (`is_datacentre`, `capacity_mw`/`capacity_source`, `p_built`, `gsp`).
-The full PlanIt record is retained verbatim in `raw` JSONB. A `sweep_run` table logs every
-run so a partial or failed sweep is visible rather than silent.
+each phase fills in (`is_datacentre`, `dc_category`/`dc_material`, `capacity_mw`/
+`capacity_source`, the on-site energy-profile columns, `site_id`, `gsp`). The full PlanIt
+record is retained verbatim in `raw` JSONB. A `sweep_run` table logs every run so a partial
+or failed sweep is visible rather than silent.
 
 ## Data sources
 
-- **PlanIt** (planit.org.uk) — ~420 LPAs, free API, no key. The Phase 0 spine.
-- **planning.data.gov.uk** — green belt, conservation, flood, local plan boundaries (Phase 1 features).
-- **Companies House** — SPV → parent resolution (Phase 1 feature).
-- **DNO open data portals** (UKPN/SSEN/NGED/SPEN/NPg), **NESO** — grid headroom + GSP boundaries (Phase 3).
+- **PlanIt** (planit.org.uk) — ~420 LPAs, free API, no key. The data spine.
+- **Council planning portals** (Idox / PublicAccess) — application documents (energy / EIA
+  / planning statements) for capacity and on-site-generation extraction.
+- **DNO open data portals** (UKPN/SSEN/NGED/SPEN/NPg), **NESO** — grid headroom + GSP
+  boundaries (planned grid-context phase).
 
 See `.context/attachments/` for the full brief and the PlanIt API reference.
