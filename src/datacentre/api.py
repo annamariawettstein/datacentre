@@ -34,6 +34,7 @@ _SITES_SQL = """
 WITH ranked AS (
     SELECT site_id, area_name, app_state, app_type, description, link,
            other_fields->>'agent_company' AS agent,
+           gsp, grid_substation, grid_demand_headroom_mw, grid_demand_rag, grid_dist_m,
            ST_X(geom) AS lng, ST_Y(geom) AS lat,
            count(*)       OVER (PARTITION BY site_id) AS n_apps,
            min(start_date) OVER (PARTITION BY site_id) AS first_seen,
@@ -53,7 +54,8 @@ WITH ranked AS (
 )
 SELECT site_id, area_name, app_state, app_type, n_apps, first_seen,
        lng, lat, left(description, 260) AS description, link, agent,
-       gen_backup, gen_prime, gen_bess, gen_solar, gen_wind
+       gen_backup, gen_prime, gen_bess, gen_solar, gen_wind,
+       gsp, grid_substation, grid_demand_headroom_mw, grid_demand_rag, grid_dist_m
 FROM ranked
 WHERE rn = 1 AND lng IS NOT NULL
 """
@@ -72,10 +74,16 @@ def build_geojson(conn: psycopg.Connection) -> dict:
         "site_id", "area_name", "app_state", "app_type", "n_apps",
         "first_seen", "lng", "lat", "description", "link", "agent",
         "gen_backup", "gen_prime", "gen_bess", "gen_solar", "gen_wind",
+        "gsp", "grid_substation", "grid_demand_headroom_mw", "grid_demand_rag", "grid_dist_m",
     ]
     features = []
     for row in rows:
         r = dict(zip(cols, row))
+        # Only surface the grid match when the nearest substation is close (≤5 km);
+        # further away means the site is in a DNO region the export doesn't cover.
+        d = r["grid_dist_m"]
+        covered = d is not None and d < 5000
+        hr = r["grid_demand_headroom_mw"]
         features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [r["lng"], r["lat"]]},
@@ -94,6 +102,11 @@ def build_geojson(conn: psycopg.Connection) -> dict:
                 "bess": bool(r["gen_bess"]),
                 "solar": bool(r["gen_solar"]),
                 "wind": bool(r["gen_wind"]),
+                "gsp": r["gsp"] if covered else None,
+                "grid_substation": r["grid_substation"] if covered else None,
+                "grid_headroom_mw": round(hr, 1) if covered and hr is not None else None,
+                "grid_rag": r["grid_demand_rag"] if covered else None,
+                "grid_dist_km": round(d / 1000, 1) if d is not None else None,
             },
         })
     return {"type": "FeatureCollection", "features": features}

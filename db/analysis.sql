@@ -148,3 +148,31 @@ FROM classified GROUP BY 1 ORDER BY 3 DESC;
 SELECT count(DISTINCT site_id) AS undecided_sites,
        count(*)                AS undecided_applications
 FROM application WHERE is_datacentre AND app_state = 'Undecided';
+
+\echo '===== 6. Grid context by GSP — DC pipeline demand vs headroom (needs load-grid) ====='
+-- Requires `datacentre load-grid`. Each material site is matched to its nearest primary
+-- substation; here we roll up to the Grid Supply Point. Caveats: "GSP headroom" is the
+-- SUM of primary demand headroom (a distribution-level proxy, not transmission GSP
+-- capacity); only sites within 5 km of a substation are counted (looser matches sit in
+-- DNO regions the export doesn't cover); DC pipeline mixes stated + rough extracted MW.
+WITH gsp_headroom AS (
+    SELECT gsp, min(dno) AS dno, count(*) AS n_primaries,
+           round(sum(demand_headroom_mw)::numeric, 1) AS headroom_mw
+    FROM uk_primary_substations WHERE gsp IS NOT NULL AND gsp <> ''
+    GROUP BY gsp
+), dc_site AS (
+    SELECT site_id,
+           (array_agg(gsp ORDER BY grid_dist_m))[1] AS gsp,
+           (array_agg(capacity_mw ORDER BY (capacity_source='stated') DESC, capacity_mw DESC)
+              FILTER (WHERE capacity_mw IS NOT NULL))[1] AS mw,
+           min(grid_dist_m) AS min_dist
+    FROM application WHERE is_datacentre AND dc_material AND gsp IS NOT NULL
+    GROUP BY site_id
+), dc_per_gsp AS (
+    SELECT gsp, count(*) AS n_dc, round(sum(mw)::numeric, 0) AS dc_pipeline_mw
+    FROM dc_site WHERE min_dist < 5000 AND mw IS NOT NULL GROUP BY gsp
+)
+SELECT g.gsp, g.dno, d.n_dc, d.dc_pipeline_mw, g.headroom_mw,
+       round((d.dc_pipeline_mw - g.headroom_mw)::numeric, 0) AS shortfall_mw
+FROM dc_per_gsp d JOIN gsp_headroom g USING (gsp)
+ORDER BY d.dc_pipeline_mw DESC LIMIT 20;

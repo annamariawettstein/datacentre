@@ -125,6 +125,17 @@ ALTER TABLE application
     ADD COLUMN IF NOT EXISTS capacity_model               text,
     ADD COLUMN IF NOT EXISTS capacity_extracted_at        timestamptz;
 
+-- Grid-connection context (grid.py — optional; requires a GridScope substations load).
+-- Each geolocated site is matched to its nearest primary substation; `gsp` above is
+-- populated from the match, these hold the connection detail and local headroom.
+ALTER TABLE application
+    ADD COLUMN IF NOT EXISTS grid_substation           text,
+    ADD COLUMN IF NOT EXISTS grid_dno                  text,
+    ADD COLUMN IF NOT EXISTS grid_dist_m               real,   -- metres to that substation
+    ADD COLUMN IF NOT EXISTS grid_demand_headroom_mw   real,
+    ADD COLUMN IF NOT EXISTS grid_gen_headroom_mw      real,
+    ADD COLUMN IF NOT EXISTS grid_demand_rag           text;   -- red|amber|green
+
 CREATE INDEX IF NOT EXISTS application_geom_idx        ON application USING gist (geom);
 CREATE INDEX IF NOT EXISTS application_area_idx        ON application (area_name);
 CREATE INDEX IF NOT EXISTS application_start_date_idx  ON application (start_date);

@@ -68,6 +68,22 @@ def serve(
     uvicorn.run("datacentre.api:app", host=host, port=port, log_level="info")
 
 
+@app.command("load-grid")
+def load_grid(
+    src: str = typer.Argument(..., help="GridScope backup dir or uk_primary_substations.sql.gz"),
+) -> None:
+    """Load GridScope primary-substation headroom and match sites to it (populates gsp)."""
+    from .grid import load_grid as run
+
+    console.print(f"Loading grid substations from [cyan]{src}[/cyan]...")
+    n_subs, matched = run(src)
+    console.print(
+        f"[green]Loaded {n_subs:,} primary substations[/green]; matched {matched:,} "
+        f"data-centre applications to their nearest one. Run db/analysis.sql for the "
+        f"GSP-level headroom rollup."
+    )
+
+
 @app.command()
 def snapshot() -> None:
     """Freeze the API responses to static web/stats.json + web/sites.geojson.

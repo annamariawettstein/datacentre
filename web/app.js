@@ -172,11 +172,18 @@ function openFlyout(p) {
   st.style.background = color;
   st.style.color = "#fff";
   document.getElementById("fly-area").textContent = p.area || "—";
+  const rag = (p.grid_rag || "").toLowerCase();
+  const ragDot = p.grid_rag ? `<span class="rag ${rag}">${p.grid_rag}</span>` : "";
+  const grid = p.grid_substation ? `
+    <div class="row grid-head"><span class="k">NEAREST GRID</span><span class="v">${ragDot}</span></div>
+    <div class="row"><span class="k">GSP</span><span class="v">${p.gsp || "—"}</span></div>
+    <div class="row"><span class="k">SUBSTATION</span><span class="v">${p.grid_substation}${p.grid_dist_km != null ? ` · ${p.grid_dist_km} km` : ""}</span></div>
+    <div class="row"><span class="k">DEMAND HEADROOM</span><span class="v">${p.grid_headroom_mw != null ? p.grid_headroom_mw + " MW" : "—"}</span></div>` : "";
   document.getElementById("fly-meta").innerHTML = `
     <div class="row"><span class="k">APPLICATIONS</span><span class="v">${p.n_apps}</span></div>
     <div class="row"><span class="k">TYPE</span><span class="v">${p.type || "—"}</span></div>
     <div class="row"><span class="k">FIRST SEEN</span><span class="v">${p.year || "—"}</span></div>
-    <div class="row"><span class="k">AGENT</span><span class="v">${p.agent || "—"}</span></div>`;
+    <div class="row"><span class="k">AGENT</span><span class="v">${p.agent || "—"}</span></div>${grid}`;
   document.getElementById("fly-desc").textContent = p.description || "";
   document.getElementById("fly-link").href = p.link || "#";
   flyout.classList.add("open");

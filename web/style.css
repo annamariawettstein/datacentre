@@ -310,6 +310,17 @@ html, body {
 .flyout-meta .row { display: flex; justify-content: space-between; font-size: 11px; }
 .flyout-meta .k { color: var(--ink-faint); letter-spacing: 1px; }
 .flyout-meta .v { color: var(--ink); text-align: right; }
+.flyout-meta .row.grid-head {
+  margin-top: 8px; padding-top: 9px; border-top: 1px solid var(--edge-soft);
+}
+.flyout-meta .row.grid-head .k { color: var(--ink-soft); }
+.rag {
+  font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600;
+  padding: 2px 7px; border-radius: 5px; color: #fff;
+}
+.rag.red { background: var(--coral); }
+.rag.amber { background: var(--peach); }
+.rag.green { background: var(--sage); }
 .flyout-desc {
   font-size: 11px; line-height: 1.65; color: var(--ink-soft);
   max-height: 150px; overflow-y: auto; padding-left: 12px; margin-bottom: 16px;
